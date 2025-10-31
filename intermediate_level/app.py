@@ -1,51 +1,41 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import pickle
-import os
 
-# --- Load model and scaler ---
-model_path = os.path.join(os.path.dirname(__file__), "model_car.pkl")
-scaler_path = os.path.join(os.path.dirname(__file__), "scaler_car.pkl")
+# Load model and scaler
+model = pickle.load(open("model_car.pkl", "rb"))
+scaler = pickle.load(open("scaler.pkl", "rb"))
 
-with open(model_path, "rb") as f:
-    model = pickle.load(f)
-with open(scaler_path, "rb") as f:
-    scaler = pickle.load(f)
+st.title("🚗 Car Selling Price Prediction App")
 
-st.set_page_config(page_title="🚗 Car Price Predictor", layout="centered")
-st.title("🚗 Car Selling Price Prediction")
-st.markdown("Predict the approximate **selling price** of your car based on its features.")
+# Collect user input
+fuel_type = st.selectbox("Fuel Type", ['Petrol', 'Diesel', 'CNG'])
+seller_type = st.selectbox("Seller Type", ['Dealer', 'Individual'])
+transmission = st.selectbox("Transmission", ['Manual', 'Automatic'])
+present_price = st.number_input("Present Price (in lakhs)", min_value=0.0)
+kms_driven = st.number_input("Kilometers Driven", min_value=0)
+owner = st.selectbox("Number of Previous Owners", [0, 1, 2, 3])
+year = st.number_input("Year of Purchase", min_value=1990, max_value=2025)
 
-# --- Sidebar inputs ---
-st.sidebar.header("Enter Car Details")
+if st.button("Predict Price"):
+    years_old = 2025 - year
 
-Present_Price = st.sidebar.number_input("Showroom Price (in lakhs)", 0.0, 50.0, 5.0)
-Kms_Driven = st.sidebar.number_input("Kilometers Driven", 0, 500000, 30000)
-Owner = st.sidebar.selectbox("Number of Previous Owners", [0, 1, 2, 3])
-Fuel_Type = st.sidebar.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG"])
-Seller_Type = st.sidebar.selectbox("Seller Type", ["Dealer", "Individual"])
-Transmission = st.sidebar.selectbox("Transmission", ["Manual", "Automatic"])
-Years_old = st.sidebar.number_input("Years of Service", 0, 30, 5)
+    # Match exact training columns
+    input_df = pd.DataFrame([{
+        'Present_Price': present_price,
+        'Kms_Driven': kms_driven,
+        'Fuel_Type': 2 if fuel_type == 'Petrol' else 1 if fuel_type == 'Diesel' else 0,
+        'Seller_Type': 1 if seller_type == 'Individual' else 0,
+        'Transmission': 1 if transmission == 'Manual' else 0,
+        'Owner': owner,
+        'Years_old': years_old
+    }])
 
-# --- Encode categorical inputs ---
-Fuel_Type_map = {"Petrol": 2, "Diesel": 0, "CNG": 1}
-Seller_Type_map = {"Dealer": 0, "Individual": 1}
-Transmission_map = {"Manual": 1, "Automatic": 0}
+    # Apply scaler with same feature order as during training
+    feature_order = ['Present_Price', 'Kms_Driven', 'Fuel_Type', 'Seller_Type', 'Transmission', 'Owner', 'Years_old']
+    input_df = input_df[feature_order]
 
-data = pd.DataFrame([{
-    "Present_Price": Present_Price,
-    "Kms_Driven": Kms_Driven,
-    "Owner": Owner,
-    "Fuel_Type": Fuel_Type_map[Fuel_Type],
-    "Seller_Type": Seller_Type_map[Seller_Type],
-    "Transmission": Transmission_map[Transmission],
-    "Years_old": Years_old
-}])
+    input_scaled = scaler.transform(input_df)
+    prediction = model.predict(input_scaled)
 
-# --- Prediction ---
-if st.button("🔍 Predict Selling Price"):
-    data_scaled = scaler.transform(data)
-    prediction = model.predict(data_scaled)[0]
-    st.success(f"💰 Estimated Selling Price: ₹ {prediction:.2f} lakhs")
-
+    st.success(f"Estimated Selling Price: ₹ {round(prediction[0], 2)} lakhs")
