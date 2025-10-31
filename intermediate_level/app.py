@@ -2,14 +2,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import os
 
 # -------------------------------
-# Load trained model and scaler
+# Load trained model and scaler safely
 # -------------------------------
-with open("model_car.pkl", "rb") as f:
+BASE_DIR = os.path.dirname(__file__)
+
+with open(os.path.join(BASE_DIR, "model_car.pkl"), "rb") as f:
     model = pickle.load(f)
 
-with open("scaler_car.pkl", "rb") as f:
+with open(os.path.join(BASE_DIR, "scaler.pkl"), "rb") as f:
     scaler = pickle.load(f)
 
 # -------------------------------
@@ -35,10 +38,8 @@ Transmission = st.sidebar.selectbox("Transmission", ["Manual", "Automatic"])
 # -------------------------------
 # Preprocess Inputs
 # -------------------------------
-# Years used
 Years_old = 2025 - Year
 
-# Encode categorical variables
 Fuel_Type_Petrol = 1 if Fuel_Type == "Petrol" else 0
 Fuel_Type_Diesel = 1 if Fuel_Type == "Diesel" else 0
 Fuel_Type_CNG = 1 if Fuel_Type == "CNG" else 0
@@ -46,7 +47,6 @@ Fuel_Type_CNG = 1 if Fuel_Type == "CNG" else 0
 Seller_Type_Individual = 1 if Seller_Type == "Individual" else 0
 Transmission_Manual = 1 if Transmission == "Manual" else 0
 
-# Create DataFrame
 data = pd.DataFrame({
     'Present_Price': [Present_Price],
     'Kms_Driven': [Kms_Driven],
@@ -70,7 +70,6 @@ if st.button("🔍 Predict Selling Price"):
 
     st.subheader("💰 Predicted Selling Price")
     st.success(f"Estimated Price: ₹ {prediction:.2f} lakhs")
-
     st.caption("*(Prediction is based on your input values)*")
 
 # -------------------------------
