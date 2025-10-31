@@ -12,7 +12,7 @@ BASE_DIR = os.path.dirname(__file__)
 with open(os.path.join(BASE_DIR, "model_car.pkl"), "rb") as f:
     model = pickle.load(f)
 
-with open(os.path.join(BASE_DIR, "scaler.pkl"), "rb") as f:
+with open(os.path.join(BASE_DIR, "scaler_car.pkl"), "rb") as f:
     scaler = pickle.load(f)
 
 # -------------------------------
