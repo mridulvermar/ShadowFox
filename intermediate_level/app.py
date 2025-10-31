@@ -1,41 +1,80 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import pickle
 
-# Load model and scaler
-model = pickle.load(open("model_car.pkl", "rb"))
-scaler = pickle.load(open("scaler.pkl", "rb"))
+# -------------------------------
+# Load trained model and scaler
+# -------------------------------
+with open("model_car.pkl", "rb") as f:
+    model = pickle.load(f)
 
+with open("scaler.pkl", "rb") as f:
+    scaler = pickle.load(f)
+
+# -------------------------------
+# Streamlit Page Configuration
+# -------------------------------
+st.set_page_config(page_title="🚗 Car Selling Price Predictor", layout="centered")
 st.title("🚗 Car Selling Price Prediction App")
+st.markdown("### Get an estimated selling price for your car")
 
-# Collect user input
-fuel_type = st.selectbox("Fuel Type", ['Petrol', 'Diesel', 'CNG'])
-seller_type = st.selectbox("Seller Type", ['Dealer', 'Individual'])
-transmission = st.selectbox("Transmission", ['Manual', 'Automatic'])
-present_price = st.number_input("Present Price (in lakhs)", min_value=0.0)
-kms_driven = st.number_input("Kilometers Driven", min_value=0)
-owner = st.selectbox("Number of Previous Owners", [0, 1, 2, 3])
-year = st.number_input("Year of Purchase", min_value=1990, max_value=2025)
+# -------------------------------
+# Sidebar for Inputs
+# -------------------------------
+st.sidebar.header("🔧 Input Car Details")
 
-if st.button("Predict Price"):
-    years_old = 2025 - year
+Year = st.sidebar.number_input("Year of Purchase", min_value=1990, max_value=2025, value=2018)
+Present_Price = st.sidebar.number_input("Present Price (in lakhs)", min_value=0.0, value=5.0, step=0.1)
+Kms_Driven = st.sidebar.number_input("Kilometers Driven", min_value=0, value=20000, step=500)
+Owner = st.sidebar.selectbox("Number of Previous Owners", [0, 1, 2, 3])
+Fuel_Type = st.sidebar.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG"])
+Seller_Type = st.sidebar.selectbox("Seller Type", ["Dealer", "Individual"])
+Transmission = st.sidebar.selectbox("Transmission", ["Manual", "Automatic"])
 
-    # Match exact training columns
-    input_df = pd.DataFrame([{
-        'Present_Price': present_price,
-        'Kms_Driven': kms_driven,
-        'Fuel_Type': 2 if fuel_type == 'Petrol' else 1 if fuel_type == 'Diesel' else 0,
-        'Seller_Type': 1 if seller_type == 'Individual' else 0,
-        'Transmission': 1 if transmission == 'Manual' else 0,
-        'Owner': owner,
-        'Years_old': years_old
-    }])
+# -------------------------------
+# Preprocess Inputs
+# -------------------------------
+# Years used
+Years_old = 2025 - Year
 
-    # Apply scaler with same feature order as during training
-    feature_order = ['Present_Price', 'Kms_Driven', 'Fuel_Type', 'Seller_Type', 'Transmission', 'Owner', 'Years_old']
-    input_df = input_df[feature_order]
+# Encode categorical variables
+Fuel_Type_Petrol = 1 if Fuel_Type == "Petrol" else 0
+Fuel_Type_Diesel = 1 if Fuel_Type == "Diesel" else 0
+Fuel_Type_CNG = 1 if Fuel_Type == "CNG" else 0
 
-    input_scaled = scaler.transform(input_df)
-    prediction = model.predict(input_scaled)
+Seller_Type_Individual = 1 if Seller_Type == "Individual" else 0
+Transmission_Manual = 1 if Transmission == "Manual" else 0
 
-    st.success(f"Estimated Selling Price: ₹ {round(prediction[0], 2)} lakhs")
+# Create DataFrame
+data = pd.DataFrame({
+    'Present_Price': [Present_Price],
+    'Kms_Driven': [Kms_Driven],
+    'Owner': [Owner],
+    'Years_old': [Years_old],
+    'Fuel_Type_Diesel': [Fuel_Type_Diesel],
+    'Fuel_Type_Petrol': [Fuel_Type_Petrol],
+    'Fuel_Type_CNG': [Fuel_Type_CNG],
+    'Seller_Type_Individual': [Seller_Type_Individual],
+    'Transmission_Manual': [Transmission_Manual]
+})
+
+# -------------------------------
+# Prediction
+# -------------------------------
+if st.button("🔍 Predict Selling Price"):
+    # Scale numeric features
+    data_scaled = scaler.transform(data)
+
+    prediction = model.predict(data_scaled)[0]
+
+    st.subheader("💰 Predicted Selling Price")
+    st.success(f"Estimated Price: ₹ {prediction:.2f} lakhs")
+
+    st.caption("*(Prediction is based on your input values)*")
+
+# -------------------------------
+# Footer
+# -------------------------------
+st.markdown("---")
+st.caption("Developed with ❤️ using Streamlit and Scikit-learn")
