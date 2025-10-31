@@ -1,79 +1,53 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import pickle
+import numpy as np
 import os
 
-# -------------------------------
-# Load trained model and scaler safely
-# -------------------------------
 BASE_DIR = os.path.dirname(__file__)
 
+# Load model and scaler
 with open(os.path.join(BASE_DIR, "model_car.pkl"), "rb") as f:
     model = pickle.load(f)
 
 with open(os.path.join(BASE_DIR, "scaler_car.pkl"), "rb") as f:
     scaler = pickle.load(f)
 
-# -------------------------------
-# Streamlit Page Configuration
-# -------------------------------
-st.set_page_config(page_title="🚗 Car Selling Price Predictor", layout="centered")
-st.title("🚗 Car Selling Price Prediction App")
-st.markdown("### Get an estimated selling price for your car")
+st.title("🚗 Car Price Prediction App")
 
-# -------------------------------
-# Sidebar for Inputs
-# -------------------------------
-st.sidebar.header("🔧 Input Car Details")
+# User inputs
+year = st.number_input("Year of Purchase", min_value=1990, max_value=2025, step=1)
+present_price = st.number_input("Showroom Price (in lakhs)", min_value=0.0, step=0.1)
+kms_driven = st.number_input("Kilometers Driven", min_value=0)
+owner = st.selectbox("Number of Previous Owners", [0, 1, 2, 3])
 
-Year = st.sidebar.number_input("Year of Purchase", min_value=1990, max_value=2025, value=2018)
-Present_Price = st.sidebar.number_input("Present Price (in lakhs)", min_value=0.0, value=5.0, step=0.1)
-Kms_Driven = st.sidebar.number_input("Kilometers Driven", min_value=0, value=20000, step=500)
-Owner = st.sidebar.selectbox("Number of Previous Owners", [0, 1, 2, 3])
-Fuel_Type = st.sidebar.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG"])
-Seller_Type = st.sidebar.selectbox("Seller Type", ["Dealer", "Individual"])
-Transmission = st.sidebar.selectbox("Transmission", ["Manual", "Automatic"])
+fuel_type = st.selectbox("Fuel Type", ["Petrol", "Diesel", "CNG"])
+seller_type = st.selectbox("Seller Type", ["Dealer", "Individual"])
+transmission = st.selectbox("Transmission Type", ["Manual", "Automatic"])
 
-# -------------------------------
-# Preprocess Inputs
-# -------------------------------
-Years_old = 2025 - Year
+# Encode categorical variables
+fuel_map = {"Petrol": 0, "Diesel": 1, "CNG": 2}
+seller_map = {"Dealer": 0, "Individual": 1}
+trans_map = {"Manual": 0, "Automatic": 1}
 
-Fuel_Type_Petrol = 1 if Fuel_Type == "Petrol" else 0
-Fuel_Type_Diesel = 1 if Fuel_Type == "Diesel" else 0
-Fuel_Type_CNG = 1 if Fuel_Type == "CNG" else 0
+# Calculate car age
+current_year = 2020  # 👈 use the same base year as used in training
+age = current_year - year
 
-Seller_Type_Individual = 1 if Seller_Type == "Individual" else 0
-Transmission_Manual = 1 if Transmission == "Manual" else 0
+# Order of features must match the one used during training
+input_features = np.array([[present_price,
+                            kms_driven,
+                            owner,
+                            age,
+                            fuel_map[fuel_type],
+                            seller_map[seller_type],
+                            trans_map[transmission]]])
 
-data = pd.DataFrame({
-    'Present_Price': [Present_Price],
-    'Kms_Driven': [Kms_Driven],
-    'Owner': [Owner],
-    'Years_old': [Years_old],
-    'Fuel_Type_Diesel': [Fuel_Type_Diesel],
-    'Fuel_Type_Petrol': [Fuel_Type_Petrol],
-    'Fuel_Type_CNG': [Fuel_Type_CNG],
-    'Seller_Type_Individual': [Seller_Type_Individual],
-    'Transmission_Manual': [Transmission_Manual]
-})
-
-# -------------------------------
 # Prediction
-# -------------------------------
-if st.button("🔍 Predict Selling Price"):
-    # Scale numeric features
-    data_scaled = scaler.transform(data)
-
-    prediction = model.predict(data_scaled)[0]
-
-    st.subheader("💰 Predicted Selling Price")
-    st.success(f"Estimated Price: ₹ {prediction:.2f} lakhs")
-    st.caption("*(Prediction is based on your input values)*")
-
-# -------------------------------
-# Footer
-# -------------------------------
-st.markdown("---")
-st.caption("Developed with ❤️ using Streamlit and Scikit-learn")
+if st.button("Predict Price 💰"):
+    try:
+        scaled_data = scaler.transform(input_features)
+        predicted_price = model.predict(scaled_data)[0]
+        st.success(f"Estimated Selling Price: ₹ {predicted_price:.2f} lakhs")
+    except ValueError as e:
+        st.error("⚠️ Feature mismatch — please verify the feature order and retrain the scaler.")
+        st.text(str(e))
